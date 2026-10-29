@@ -71,6 +71,7 @@ async def chat(system: str, user: str, context: str) -> str | None:
                     "model": settings.ollama_chat_model,
                     "prompt": prompt,
                     "stream": False,
+                    "think": False,
                     "options": {
                         "num_ctx": settings.ollama_num_ctx,
                         "num_predict": 512,

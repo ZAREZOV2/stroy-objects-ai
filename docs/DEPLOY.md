@@ -6,65 +6,51 @@
 
 ## Требования к серверу
 
-| Компонент | Ориентир по RAM |
-|-----------|-----------------|
-| PostgreSQL (pgvector) | 512 МБ – 1 ГБ |
-| FastAPI-приложение | 256 – 512 МБ |
-| Ollama + **Spark-X2.5-1.7B** (Q4, по умолчанию) | ~1,5 – 2,5 ГБ |
-| Ollama + **bge-m3** (эмбеддинги) | ~600 МБ – 1 ГБ |
-| ОС, nginx, запас | ~512 МБ – 1 ГБ |
+| Компонент | Ориентир по RAM / диск |
+|-----------|-------------------------|
+| PostgreSQL (pgvector) | 512 МБ – 1 ГБ RAM |
+| FastAPI-приложение | 256 – 512 МБ RAM |
+| Ollama + **Spark-X2.5-1.7B** | ~1,5 – 2,5 ГБ RAM; **~3,4 ГБ на диске** после `ollama pull` |
+| Ollama + **bge-m3** | ~600 МБ – 1 ГБ RAM |
+| ОС, nginx, запас | ~512 МБ – 1 ГБ RAM |
 
-На **~7 ГБ свободной RAM** и **4 CPU** комфортно работает связка **1.7B + bge-m3** при `OLLAMA_NUM_CTX=1536` (значение по умолчанию).
+На **~7 ГБ свободной RAM** и **4 CPU** комфортно работает **1.7B + bge-m3** при `OLLAMA_NUM_CTX=1536` и `RAG_MAX_CONTEXT_CHARS=2000` (контекст RAG не должен занимать всё окно — иначе модель обрежет ответ).
 
-**Более тяжёлый чат (опционально):** `OLLAMA_CHAT_MODEL=SparkLLM/Spark-X2.5-4B` — лучше качество ответов, но +1–2 ГБ RAM; при OOM верните 1.7B или уменьшите `OLLAMA_NUM_CTX` до `1280`.
+**Производительность (ориентир на 4 vCPU, без GPU):** один RAG-ответ с генерацией Spark-X2.5-1.7B — **~45–55 с** (поиск + embed + generate). В nginx обязательно `proxy_read_timeout 300s;`.
 
-Ollama держит **одну** загруженную модель (`OLLAMA_MAX_LOADED_MODELS=1`); чат и эмбеддинги подгружаются по очереди.
+**Более тяжёлый чат (опционально):** `OLLAMA_CHAT_MODEL=SparkLLM/Spark-X2.5-4B` — лучше качество, но больше RAM и дольше ответ.
+
+Ollama: **одна** загруженная модель (`OLLAMA_MAX_LOADED_MODELS=1`).
 
 ## Модели
 
-| Назначение | Переменная | Значение по умолчанию | Зачем |
-|------------|------------|----------------------|--------|
-| Чат (RAG) | `OLLAMA_CHAT_MODEL` | `SparkLLM/Spark-X2.5-1.7B` | CPU-friendly; **Ollama ≥ 0.34.1** (`ollama/ollama:0.34.1`) |
-| Чат (тяжелее) | `OLLAMA_CHAT_MODEL` | `SparkLLM/Spark-X2.5-4B` | Опционально через `.env` |
-| Эмбеддинги | `OLLAMA_EMBED_MODEL` | `bge-m3` | Мультиязычная, **русский** |
-| Размерность | `OLLAMA_EMBED_DIMENSIONS` | `1024` | Совпадает с pgvector |
-| Контекст LLM | `OLLAMA_NUM_CTX` | `1536` | Умеренное окно под 7 ГБ RAM |
+| Назначение | Переменная | По умолчанию |
+|------------|------------|--------------|
+| Чат | `OLLAMA_CHAT_MODEL` | `SparkLLM/Spark-X2.5-1.7B` (Ollama ≥ **0.34.1**, `think: false` в API) |
+| Эмбеддинги | `OLLAMA_EMBED_MODEL` | `bge-m3` |
+| Контекст LLM | `OLLAMA_NUM_CTX` | `1536` |
+| Текст RAG в промпт | `RAG_MAX_CONTEXT_CHARS` | `2000` |
 
-## 1. Подготовка сервера
+## 1. Подготовка
 
 ```bash
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin git
-sudo usermod -aG docker $USER
-git clone <URL-репозитория> stroy-portal && cd stroy-portal
 cp .env.example .env
+# задайте POSTGRES_PASSWORD и APP_SECRET_KEY
 ```
 
-## 2. Запуск с Ollama
+Порты в `docker-compose.yml` привязаны к **127.0.0.1** (доступ снаружи только через nginx).
+
+## 2. Запуск
 
 ```bash
 docker compose --profile ollama up -d --build
-```
-
-### Загрузка моделей
-
-```bash
 docker compose exec ollama ollama pull bge-m3
 docker compose exec ollama ollama pull SparkLLM/Spark-X2.5-1.7B
-# опционально:
-# docker compose exec ollama ollama pull SparkLLM/Spark-X2.5-4B
 ```
 
-Проверка: `docker compose exec ollama ollama list`
-
-## 3. nginx + HTTPS (Let's Encrypt)
+## 3. nginx + HTTPS
 
 ```nginx
-server {
-    listen 80;
-    server_name portal.example.gov.local;
-    return 301 https://$host$request_uri;
-}
-
 server {
     listen 443 ssl http2;
     server_name portal.example.gov.local;
@@ -80,28 +66,19 @@ server {
 }
 ```
 
-```bash
-sudo apt install -y nginx certbot python3-certbot-nginx
-sudo certbot --nginx -d portal.example.gov.local
-```
+Без увеличенного `proxy_read_timeout` длинные ответы LLM обрываются по таймауту nginx (дефолт 60 с).
 
-Production: `DEBUG=false`, смените пароли БД.
-
-## 4. Лимиты памяти
+## 4. Лимиты
 
 ```env
 OLLAMA_NUM_CTX=1536
-RAG_MAX_CONTEXT_CHARS=4500
-RAG_MAX_CHUNK_CHARS_FOR_EMBED=1500
+RAG_MAX_CONTEXT_CHARS=2000
 OLLAMA_CHAT_MODEL=SparkLLM/Spark-X2.5-1.7B
+POSTGRES_PASSWORD=<секрет>
 ```
-
-Без Ollama сервис стартует; `/assistant` — BM25-fallback.
 
 ## 5. Бэкапы
 
 ```bash
 docker compose exec db pg_dump -U stroy stroy_db > backup.sql
 ```
-
-Тома: `pgdata`, `ollama_data`, `data/uploads`.

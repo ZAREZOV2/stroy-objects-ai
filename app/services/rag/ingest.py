@@ -85,19 +85,28 @@ async def get_document(db: AsyncSession, doc_id: int) -> Document | None:
     return (await db.execute(q)).scalar_one_or_none()
 
 
-OBJECT_QUESTION_RE = re.compile(
-    r"просроч|объект|строительн|бюджет|освоен|сдан|приостанов",
-    re.IGNORECASE,
-)
+def is_registry_objects_question(question: str) -> bool:
+    """True только для явных вопросов к реестру (просрочка, список), не к нормативным документам."""
+    q = question.strip()
+    if not q:
+        return False
+    lower = q.lower()
+    if re.search(r"просроч", lower):
+        return True
+    if re.search(r"список\s+.*объект", lower) or re.search(r"объект.*\s+в\s+реестре", lower):
+        return True
+    if "реестр" in lower and re.search(r"сколько|какие|список", lower):
+        return True
+    if re.search(r"какие\s+объект", lower) and re.search(r"просроч|реестр|строительств", lower):
+        return True
+    return False
 
 
 async def answer_question(db: AsyncSession, question: str) -> AskResponse:
     ollama_ok = await ollama_service.check_ollama_available()
 
     # Простая связка с реестром объектов
-    if OBJECT_QUESTION_RE.search(question) and re.search(
-        r"просроч|сколько|какие|список", question, re.IGNORECASE
-    ):
+    if is_registry_objects_question(question):
         objs = await object_service.list_objects(db, overdue_only=True, limit=500)
         if objs:
             lines = [

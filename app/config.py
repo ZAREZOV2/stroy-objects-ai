@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ollama_embed_dimensions: int = 1024
     # Окно контекста LLM: умеренное значение под VDS ~7 ГБ RAM без GPU (4B + bge-m3)
     ollama_num_ctx: int = 1536
-    rag_max_context_chars: int = 4500
+    rag_max_context_chars: int = 2000
     rag_max_chunk_chars_for_embed: int = 1500
 
     app_secret_key: str = "dev-secret"
