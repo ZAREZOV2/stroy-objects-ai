@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Портал{% endblock %} — Минстрой СО</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <strong>Министерство строительства Свердловской области</strong>
+          <span class="muted">Демо-портал учёта объектов · ТИМ</span>
+        </div>
+      </div>
+      <nav class="main-nav">
+        <a href="/">Дашборд</a>
+        <a href="/objects">Реестр объектов</a>
+        <a href="/assistant">ИИ-помощник</a>
+        <a href="/docs" target="_blank" rel="noopener">API</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <div class="wrap muted">Демонстрационные данные. Не является официальной системой.</div>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

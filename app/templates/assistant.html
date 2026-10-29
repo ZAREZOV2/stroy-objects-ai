@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}ИИ-помощник{% endblock %}
+{% block content %}
+<h1>ИИ-помощник по нормативным документам</h1>
+<p class="lead">Ответы с опорой на загруженные документы. Демо-регламенты помечены как [ДЕМО].</p>
+
+{% if not ollama_ok %}
+<div class="alert info">
+  <strong>Ollama недоступен.</strong> Приложение работает в режиме поиска по ключевым словам (BM25) без генерации текста нейросетью.
+  Для полного RAG: <code>docker compose --profile ollama up</code>, чат <code>SparkLLM/Spark-X2.5-1.7B</code> (опц. 4B в <code>.env</code>) и <code>bge-m3</code> — <code>docs/DEPLOY.md</code>.
+</div>
+{% else %}
+<div class="alert ok"><strong>Ollama подключён.</strong> Ответы формируются локальной моделью на основе найденных фрагментов.</div>
+{% endif %}
+
+<div class="grid-2">
+  <section class="panel">
+    <h2>Задать вопрос</h2>
+    <form method="post" action="/assistant">
+      <textarea name="question" rows="4" placeholder="Например: какие сроки сдачи объекта заказчику по демо-регламенту?" required>{{ question }}</textarea>
+      <button type="submit" class="btn">Спросить</button>
+    </form>
+    <p class="hint">Пример связи с реестром: «какие объекты просрочены?»</p>
+
+    {% if answer %}
+    <div class="answer-box">
+      <span class="badge">режим: {{ answer.mode }}</span>
+      <div class="answer-text">{{ answer.answer }}</div>
+      {% if answer.note %}<p class="muted">{{ answer.note }}</p>{% endif %}
+      {% if answer.citations %}
+      <h3>Источники</h3>
+      <ul>
+        {% for c in answer.citations %}
+        <li><strong>{{ c.document_title }}</strong>, фрагмент {{ c.chunk_index + 1 }}: <em>{{ c.excerpt }}</em></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Документы</h2>
+    <ul class="doc-list">
+      {% for doc, cnt in documents %}
+      <li>{{ doc.title }} <span class="muted">({{ cnt }} фр.)</span>{% if doc.is_demo %} <span class="badge">демо</span>{% endif %}</li>
+      {% else %}
+      <li class="muted">Документов нет — будут загружены при старте из data/samples</li>
+      {% endfor %}
+    </ul>
+    <h3>Загрузить документ</h3>
+    <form method="post" enctype="multipart/form-data" action="/assistant">
+      <label>Название<input name="title" placeholder="Порядок приёмки объекта"></label>
+      <input type="file" name="file" accept=".pdf,.docx,.txt" required>
+      <input type="hidden" name="question" value="">
+      <button type="submit" class="btn secondary">Загрузить</button>
+    </form>
+  </section>
+</div>
+{% endblock %}
