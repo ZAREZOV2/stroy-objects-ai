@@ -1,0 +1,55 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: stroy
+      POSTGRES_PASSWORD: stroy
+      POSTGRES_DB: stroy_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stroy -d stroy_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://stroy:stroy@db:5432/stroy_db
+      DATABASE_URL_SYNC: postgresql://stroy:stroy@db:5432/stroy_db
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: SparkLLM/Spark-X2.5-1.7B
+      OLLAMA_EMBED_MODEL: bge-m3
+      OLLAMA_EMBED_DIMENSIONS: "1024"
+      OLLAMA_NUM_CTX: "1536"
+      RAG_MAX_CONTEXT_CHARS: "4500"
+      RAG_MAX_CHUNK_CHARS_FOR_EMBED: "1500"
+      DEBUG: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data/uploads:/app/data/uploads
+      - ./data/samples:/app/data/samples:ro
+
+  ollama:
+    profiles:
+      - ollama
+    # Spark-X2.5 требует Ollama >= 0.34.1
+    image: ollama/ollama:0.34.1
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  pgdata:
+  ollama_data:

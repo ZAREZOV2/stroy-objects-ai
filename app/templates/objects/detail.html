@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ object.name }}{% endblock %}
+{% block content %}
+<p><a href="/objects">← К реестру</a></p>
+<h1>{{ object.name }}</h1>
+{% if object.is_overdue(today) %}<p class="alert warn">Объект просрочен (плановое окончание {{ object.planned_end }})</p>{% endif %}
+
+<div class="grid-2">
+  <section class="panel">
+    <h2>Основные сведения</h2>
+    <dl class="detail-list">
+      <dt>Тип</dt><dd>{{ object.object_type.value }}</dd>
+      <dt>Муниципалитет</dt><dd>{{ object.municipality }}</dd>
+      <dt>Адрес</dt><dd>{{ object.address }}</dd>
+      <dt>Подрядчик</dt><dd>{{ object.contractor }}</dd>
+      <dt>Статус</dt><dd>{{ object.status.value }}</dd>
+      <dt>План: начало / окончание</dt><dd>{{ object.planned_start or '—' }} / {{ object.planned_end or '—' }}</dd>
+      <dt>Фактическое окончание</dt><dd>{{ object.actual_end or '—' }}</dd>
+      <dt>Бюджет / освоено</dt><dd>{{ "{:,.0f}".format(object.budget_rub).replace(",", " ") }} ₽ / {{ "{:,.0f}".format(object.spent_rub).replace(",", " ") }} ₽ ({{ "%.1f"|format(object.budget_execution_pct) }}%)</dd>
+    </dl>
+    <a class="btn" href="/objects/{{ object.id }}/edit">Редактировать</a>
+  </section>
+  <section class="panel">
+    <h2>История изменений</h2>
+    <ul class="history">
+      {% for h in object.history %}
+      <li><time>{{ h.changed_at.strftime('%d.%m.%Y %H:%M') }}</time> — <strong>{{ h.field_name }}</strong>: {{ h.old_value or '∅' }} → {{ h.new_value or '∅' }}{% if h.comment %} <em>({{ h.comment }})</em>{% endif %}</li>
+      {% else %}
+      <li class="muted">Изменений пока нет</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

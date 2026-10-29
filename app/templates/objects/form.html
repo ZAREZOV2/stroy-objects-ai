@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Редактирование{% else %}Новый объект{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if object %}Редактирование объекта{% else %}Новый объект{% endif %}</h1>
+<form class="panel form-grid" method="post" action="/objects/save">
+  {% if object %}<input type="hidden" name="object_id" value="{{ object.id }}">{% endif %}
+  <label>Наименование<input required name="name" value="{{ object.name if object else '' }}"></label>
+  <label>Тип
+    <select name="object_type">
+      {% for t in types %}<option value="{{ t.value }}" {% if object and object.object_type == t %}selected{% endif %}>{{ t.value }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Муниципалитет<input required name="municipality" value="{{ object.municipality if object else '' }}"></label>
+  <label>Адрес<input required name="address" value="{{ object.address if object else '' }}"></label>
+  <label>Подрядчик<input required name="contractor" value="{{ object.contractor if object else '' }}"></label>
+  <label>Статус
+    <select name="status">
+      {% for s in statuses %}<option value="{{ s.value }}" {% if object and object.status == s %}selected{% endif %}>{{ s.value }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>План начало<input type="date" name="planned_start" value="{{ object.planned_start if object and object.planned_start else '' }}"></label>
+  <label>План окончание<input type="date" name="planned_end" value="{{ object.planned_end if object and object.planned_end else '' }}"></label>
+  <label>Факт окончание<input type="date" name="actual_end" value="{{ object.actual_end if object and object.actual_end else '' }}"></label>
+  <label>Бюджет, ₽<input name="budget_rub" value="{{ object.budget_rub if object else '0' }}"></label>
+  <label>Освоено, ₽<input name="spent_rub" value="{{ object.spent_rub if object else '0' }}"></label>
+  <div class="form-actions">
+    <button type="submit" class="btn">Сохранить</button>
+    <a class="btn secondary" href="{% if object %}/objects/{{ object.id }}{% else %}/objects{% endif %}">Отмена</a>
+  </div>
+</form>
+{% endblock %}

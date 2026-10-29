@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<h1>Дашборд строительных объектов</h1>
+<p class="lead">Сводка по реестру (демо-данные по муниципалитетам Свердловской области).</p>
+
+<div class="cards">
+  <div class="card">
+    <span class="card-label">Всего объектов</span>
+    <span class="card-value">{{ status_values | sum }}</span>
+  </div>
+  <div class="card warn">
+    <span class="card-label">Просрочено</span>
+    <span class="card-value">{{ stats.overdue_count }}</span>
+  </div>
+  <div class="card">
+    <span class="card-label">Бюджет, млн ₽</span>
+    <span class="card-value">{{ "%.1f"|format(stats.total_budget / 1000000) }}</span>
+  </div>
+  <div class="card">
+    <span class="card-label">Освоено</span>
+    <span class="card-value">{{ "%.0f"|format(budget_pct) }}%</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <section class="panel">
+    <h2>Объекты по статусу</h2>
+    <canvas id="statusChart" height="200"></canvas>
+  </section>
+  <section class="panel">
+    <h2>Исполнение бюджета</h2>
+    <canvas id="budgetChart" height="200"></canvas>
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Сервисы</h2>
+  <p>ИИ-помощник: {% if ollama_ok %}<span class="badge ok">Ollama доступен</span>{% else %}<span class="badge">режим без LLM (поиск по ключевым словам)</span>{% endif %}</p>
+  <p><a class="btn" href="/objects?overdue=1">Просмотреть просроченные объекты →</a></p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const statusCtx = document.getElementById('statusChart');
+new Chart(statusCtx, {
+  type: 'doughnut',
+  data: {
+    labels: {{ status_labels | tojson }},
+    datasets: [{ data: {{ status_values | tojson }}, backgroundColor: ['#1a5fb4','#3584e4','#e5a50a','#2ec27e'] }]
+  },
+  options: { plugins: { legend: { position: 'bottom' } } }
+});
+const budgetCtx = document.getElementById('budgetChart');
+new Chart(budgetCtx, {
+  type: 'bar',
+  data: {
+    labels: ['Бюджет', 'Освоено'],
+    datasets: [{
+      label: 'млн ₽',
+      data: [{{ stats.total_budget / 1000000 }}, {{ stats.total_spent / 1000000 }}],
+      backgroundColor: ['#1c71d8', '#62a0ea']
+    }]
+  },
+  options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+});
+</script>
+{% endblock %}
